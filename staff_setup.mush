@@ -1,0 +1,55 @@
+#define TARGET_OBJ #99
+
+&D.ROLES_LIST TARGET_OBJ=general coder codehelper builder
+-
+&ROLE.BUILDER.FLAGS TARGET_OBJ=Staff Wizard
+-
+&ROLE.BUILDER.POWERS TARGET_OBJ=free_money free_quota
+-
+&ROLE.CODER.FLAGS TARGET_OBJ=Staff Wizard
+-
+&ROLE.CODER.POWERS TARGET_OBJ=free_money free_quota
+-
+&ROLE.CODEHELPER.POWERS TARGET_OBJ=comm_all find_unfindable long_fingers see_all free_money free_quota
+-
+&ROLE.CODEHELPER.FLAGS TARGET_OBJ=Staff Royalty
+-
+&ROLE.GENERAL.POWERS TARGET_OBJ=comm_all long_fingers
+-
+&ROLE.GENERAL.FLAGS TARGET_OBJ=Staff
+-
+&ROLE.TEAMLEAD.POWERS TARGET_OBJ=comm_all find_unfindable long_fingers see_all
+-
+&ROLE.TEAMLEAD.FLAGS TARGET_OBJ=Staff Royalty
+-
+&PREFIX.ROLES TARGET_OBJ=role.
+-
+&FN.VALID_ROLE TARGET_OBJ=t(member(u(%!/D.ROLES_LIST),lcstr(%0)))
+-
+&.FMT_ROLE_LIST_LINE TARGET_OBJ=cat(ljust(%0,15),ljust(%1,25),ljust(%2,25))
+-
+&TRIG.SETUP TARGET_OBJ=
+    @power %1=[u(%!/role.%2.powers)];
+    @set %1=[u(%!/role.%2.flags)];
+    @pemit %0=Powers and Flags for Staff set on [name(%1)]
+-
+&C.STAFF_LIST_ROLES TARGET_OBJ=$+staff/listroles:
+    @assert [isstaff(%#)]=@eval game(%#,Permission Denied);
+    @pemit %#=
+        [header(Staff Role List)]%r
+        %xh[u(%!/.fmt_role_list_line,Role,Flags,Powers)]%xn%r
+        [divider()]%r
+        [iter(sort(u(%!/D.ROLES_LIST)),[u(%!/.fmt_role_list_line,capstr(##),u(%!/role.##.flags),u(%!/role.##.powers))], ,%r)]%r
+        [footer()]
+-
+&C.STAFF_SETUP TARGET_OBJ=$+staff/setup * with role *:
+    @assert [isstaff(%#)]=@eval game(%#,Permission Denied);
+    @switch/first [hasflag(setr(1,%#),W)][hastype(setr(0,pmatch++(%0)),PLAYER)][u(%!/fn.valid_role,%1)]=
+            111,{
+                @trigger %!/trig.setup=%q1,%q0,%1
+            }
+            ,0??,@pemit %q1=Permission Denied.
+            ,10?,@pemit %q1=%q0 is not a player.
+            ,11?,@pemit %q1=%q0 is not a player.
+            ,1?0,@pemit %q1=%1 is not a role.
+-

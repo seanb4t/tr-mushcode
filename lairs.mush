@@ -1,0 +1,330 @@
+
+#define LAIR_OBJ #14614
+#define LAIR_DB_OBJ #14690
+
+@va LAIR_OBJ=LAIR_DB_OBJ
+-
+@set LAIR_OBJ=FIXED ROYALTY !HALT !NO_COMMAND SAFE
+-
+@set LAIR_DB_OBJ=FIXED HALT NO_COMMAND SAFE
+-
+@parent LAIR_OBJ=#2833
+-
+
+&f.valid_grid LAIR_OBJ=t(regmatch(ucstr(trim(%0)),^%(%[A-Z0-9%]+%),0 %1))
+-
+
+&f.is_lair LAIR_OBJ=t(strmatch(%2:%1:%3,name(%0)))
+-
+
+&f.find_lair LAIR_OBJ=filter(f.is_lair,xget([u(va)],LAIRS_LIST),|,,%0,%1,%2)
+-
+
+&f.find_lair_by_num LAIR_OBJ=setr(%1,extract(xget(u(va),LAIRS_LIST),%0,1,|))
+-
+&.fil.lair LAIR_OBJ=gt(strmatch(xget(%0,LAIR_%1),%2),0)
+-
+
+&f.find_lair_by_field LAIR_OBJ=localize(
+    filter(.fil.lair,xget([u(va)],LAIRS_LIST),|,|,%0,%1)
+)
+-
+
+&f.check_for_existing_lair LAIR_OBJ=isdbref(u(f.find_lair,%0,%1,%2))
+-
+
+&f.valid_name LAIR_OBJ=[t(regmatch(trim(%0),^%(%[a-zA-Z0-9'\\s%]+%)$,0 %1))]
+-
+
+&f.create_lair LAIR_OBJ=localize(
+    [setq(o,create(%1:%0:%3,10))]
+    [tel(%qo,u(va))]
+    [set(%qo,fixed)]
+    [set(%qo,halted)]
+    [set(%qo,LAIR_NAME:%2)]
+    [set(%qo,LAIR_TYPE:%3)]
+    [set(%qo,LAIR_LOCATION:%1)]
+    [set([u(va)],LAIRS_LIST:[setunion(xget([u(va)],LAIRS_LIST),%qo,|)])]
+    [u(f.log,%#|[secs()]|Create Lair '%2/%1')]
+)
+-
+
+&f.destroy_lair LAIR_OBJ=localize(
+    [if(isdbref(%0),
+        [name(%0,__GOING__[name(%0)]__%0)]
+        [setq(n,cat([xget(%0,LAIR_NAME)]/[xget(%0,LAIR_LOCATION)]/[xget(%0,LAIR_TYPE)]))]
+        [destroy(%0)]
+        [set([u(va)],LAIRS_LIST:[remove(xget([u(va)],LAIRS_LIST),%0,|)])]
+        [u(f.log,%#|[secs()]|Destroy Lair '%qn')]
+        [game(%#,Destroyed lair: %qn - %0)]
+        ,
+        [game(%#,Could not find lair to destroy: %0)]
+    )]
+)
+-
+
+&f.log LAIR_OBJ=localize(set(u(va),LOG:%0[if(hasattr(u(va),LOG),^[u(u(va)/LOG)])]))
+-
+
+&f.fmt_lair_list_line LAIR_OBJ=cat(ljust(%0,3),ljust(%1,30),ljust(%2,10),ljust(%3,20))
+-
+
+&fil.player_lairs LAIR_OBJ=
+    gte(strlen(xget(%0,CONTRIBUTIONS_%1)),1)
+-
+
+&f.list_player_lairs LAIR_OBJ=
+    [if(isstaff(%0),
+        xget(u(va),LAIRS_LIST)
+        ,filter(fil.player_lairs,xget(u(va),LAIRS_LIST),|,|,%0)
+    )]
+-
+
+&f.list_lairs LAIR_OBJ=localize(
+    [setq(l,u(f.list_player_lairs,%0))]
+    [if(lt(words(%ql),1),Nothing matches your request. [if(not(isstaff(%0)),You have not contributed to any lairs.)])]
+    [setq(z,xget(u(va),LAIRS_LIST))]
+    [iter(%ql,
+        [u(f.fmt_lair_list_line,member(%qz,##,|),xget(##,LAIR_NAME),xget(##,LAIR_LOCATION),xget(##,LAIR_TYPE))],|,%r)]
+    )
+-
+
+&f.list_lairs_by_field LAIR_OBJ=localize(
+    [setq(l,u(f.list_player_lairs,%0))]
+    [if(lt(words(%ql),1),
+        Nothing matches your request. [if(not(isstaff(%0)),You have not contributed to any lairs.)]
+        ,setq(l,filter(.fil.lair,%ql,|,|,%1,%2))
+    )]
+    [setq(z,xget(u(va),LAIRS_LIST))]
+    [iter(%ql,
+        [u(f.fmt_lair_list_line,member(%qz,##,|),xget(##,LAIR_NAME),xget(##,LAIR_LOCATION),xget(##,LAIR_TYPE))],|,%r)]
+    )
+-
+
+&d.valid_types LAIR_OBJ=Bunker Den Hallow Haunt Haven Home Library Safehouse Sanctum Sepulcher Temple
+-
+
+&f.valid_lair_type LAIR_OBJ=
+    t(member(u(%!/d.valid_types),[setr(%1,capstr(trim(%0)))]))
+-
+
+&f.to_name LAIR_OBJ=name(%0)
+-
+
+&f.valid_contributor LAIR_OBJ=isdbref(setr(%1,pmatch(%0)))
+-
+
+&f.add_lair_contribution LAIR_OBJ=localize(
+    [setq(n,cat([xget(%0,LAIR_NAME)]/[xget(%0,LAIR_LOCATION)]/[xget(%0,LAIR_TYPE)]))]
+    [setq(0,first(%2,:))]
+    [setq(1,last(%2,:))]
+    [if(isdbref(%0),
+        [setq(c,xget(%0,CONTRIBUTIONS_%1))]
+        [setq(c,[if([gt(words(%qc),0)],
+            [insert(%qc,-1,%q0:%q1,|,|)]
+            ,%q0:%q1
+        )])]
+        [set(%0,CONTRIBUTIONS_%1:%qc)]
+        [set(%0,CONTRIBUTION_%q0:%q0:[
+            [setq(z,rest(u(%0/CONTRIBUTION_%q0),:))]
+            [ifelse(gt(%qz,0),add(%q1,%qz),%q1)]
+        ])]
+        GAME: Added contribution by %xh[name(%1)]%xn of %xh%q0:%q1%xn to lair %xh%qn%xn
+    ,
+        GAME: Unknown lair: %0
+    )]
+)
+-
+
+&f.rem_lair_contribution LAIR_OBJ=localize(
+    [setq(n,cat([xget(%0,LAIR_NAME)]/[xget(%0,LAIR_LOCATION)]/[xget(%0,LAIR_TYPE)]))]
+    [setq(0,first(%2,:))]
+    [setq(1,last(%2,:))]
+    [if(isdbref(%0),
+        if(t(member(xget(%0,CONTRIBUTIONS_%1),%q0:%q1,|)),
+            [set(%0,CONTRIBUTIONS_%1:[remove(xget(%0,CONTRIBUTIONS_%1),%q0:%q1,|,|)])]
+            [set(%0,CONTRIBUTION_%q0:[
+                [setq(z,rest(u(%0/CONTRIBUTION_%q0),:))]
+                [ifelse(gt(%qz,%q1),%q0:[sub(%qz,%q1)],)]
+            ])]
+            GAME: Removed contribution of %q0:%q1 by %xh[name(%1)]%xn from lair %xh%qn%xn
+        ,
+            GAME: %xh[name(%1)]%xn did not contribute %q0:%q1 to lair %xh%qn%xn
+        )
+    ,
+        GAME: Unknown lair: %0
+    )]
+)
+-
+
+&f.valid_contribution LAIR_OBJ=[setq(%1,%0)]1
+-
+
+&f.list_contributors LAIR_OBJ=
+    [setq(q,ifelse(isdbref(%1),%1,*))]
+    [iter(lattr(%0/CONTRIBUTIONS_%qq),rest(##,_), ,|)]
+-
+
+&f.list_contributions LAIR_OBJ=localize(
+    [setq(0,iter(lattr(%0/CONTRIBUTION_*),u(%0/##),,|))]
+    [iter(%q0,[[space(4)][first(##,:)] : [last(##,:)]],|,%r)]
+)
+-
+
+&f.show_lair LAIR_OBJ=localize(
+    [if(isdbref(%0),
+        [setq(b,%0)]
+        [setq(x,cat([xget(%qb,LAIR_NAME)]/[xget(%qb,LAIR_LOCATION)]/[xget(%qb,LAIR_TYPE)]) )]
+        ,
+        [setq(b,u(f.find_lair,%0,%1,%2))]
+        [setq(x,%0/%1/%2)]
+    )]
+    [if(isdbref(%qb),
+        [setq(n,xget(%qb,LAIR_NAME))]
+        [setq(l,xget(%qb,LAIR_LOCATION))]
+        [setq(t,xget(%qb,LAIR_TYPE))]
+        [setq(c,map(f.to_name,u(f.list_contributors,%qb),|, ))]
+        [header(Lair Information: %qx)]%r
+        %xhName:%xn %qn%r
+        %xhLocation:%xn %ql%r
+        %xhType:%xn %qt%r
+        %xhContributors:%xn%r[space(4)]%qc%r
+        %xhCompiled Stats:%xn%r[u(f.list_contributions,%qb)]%r
+        [header(Note List for lair: %qn)]:%r
+        [iter(lattr(%qb/NOTE_*),extract(xget(%qb,##),3,1,|),,%r)]%r
+        [divider()]
+        ,
+        GAME: Could not find lair: %qx
+    )])
+-
+
+&f.show_lair_note LAIR_OBJ=localize(
+    [if(isdbref(%0),
+        [setq(b,%0)]
+        [setq(x,cat([xget(%qb,LAIR_NAME)]/[xget(%qb,LAIR_LOCATION)]/[xget(%qb,LAIR_TYPE)]) )]
+        ,
+        [setq(b,u(f.find_lair,%0,%1,%2))]
+        [setq(x,%0/%1/%2)]
+    )]
+    [if(isdbref(%qb),
+        [setq(0,xget(%qb,NOTE_%1))]
+        [setq(1,extract(%q0,1,1,|))]
+        [setq(2,extract(%q0,2,1,|))]
+        [setq(3,extract(%q0,3,1,|))]
+        [setq(4,extract(%q0,4,1,|))]
+        [setq(n,xget(%qb,LAIR_NAME))]
+        [header(Lair Note: %qx)]%r
+        %xhNote:%xn %q3%r
+        %xhDate:%xn [convsecs(%q1)]%r
+        %xhAuthor:%xn [name(%q2)]%r
+        [divider()]%r
+        %q4%r
+        [divider()]%r
+        ,
+        GAME: Could not find lair: %qx
+    )])
+
+-
+
+# Lair/create Name/Grid
+&c.lairs_create LAIR_OBJ=$+lair/create */*/*:
+    @assert [isstaff(%#)]=@pemit %#=Permission denied.;
+    @switch [u(f.valid_grid,%1,g)][u(f.valid_lair_type,%2,t)][and(u(f.valid_name,%0,n),not(u(f.check_for_existing_lair,%qn,%qg,%qt)))]=
+        111,@eval [u(f.create_lair,%qn,%qg,%0,%qt)][game(%#,Created lair: %0 of type %qt for grid co-ordinates: %qg)]
+        ,0??,@eval [game(%#,You must use valid grid coordinates.)]
+        ,??0,@eval [game(%#,You must use lair name that does not exist and is only letters%, numbers%, spaces%, or single quotes)]
+        ,?0?,@eval [game(%#,You must use a valid lair type%, one of: [u(d.valid_types)])]
+-
+
+&c.lairs_contrib_control LAIR_OBJ=$^\+lair/contribution (add|remove) ([\w\s]+.\d+) by ([\w\s]+) (to|from) ([0-9]+)$:
+    @assert [isstaff(%#)]=@pemit %#=Permission denied.;
+    @switch [isdbref(u(f.find_lair_by_num,%5,b))][u(f.valid_contributor,%3,p)][u(f.valid_contribution,%2,c)]-%1=
+        111-add,@pemit %#=[u(f.add_lair_contribution,%qb,%qp,%qc)]
+        ,111-remove,@pemit %#=[u(f.rem_lair_contribution,%qb,%qp,%qc)]
+        ,0??-*,@eval [game(%#,Lair not found.)]
+        ,?0?-*,@eval [game(%#,Contributor isn't a valid player.)]
+        ,??0-*,@eval [game(%#,Contribution isn't valid.)]
+        ,@eval [game(%#,Invalid contribution command.)]
+-
+
+@set LAIR_OBJ/c.lairs_contrib_control=regex
+-
+
+&c.lairs_destroy LAIR_OBJ=$^\+lair/destroy ([0-9]+)$:
+    @assert [isstaff(%#)]=@pemit %#=Permission denied.;
+    @switch [isdbref(u(f.find_lair_by_num,%1,b))]=
+        1,@eval [u(f.destroy_lair,%qb)]
+        ,0,@eval [game(%#,Lair not found.)]
+-
+@set LAIR_OBJ/c.lairs_destroy=regex
+-
+
+#List lairs
+&c.lairs_list LAIR_OBJ=$\+lair[s]?$:
+    @pemit %#=
+        [header(Lairs List)]%r
+        %xh[u(f.fmt_lair_list_line,#,Name,Location,Type)]%xn%r
+        [divider()]%r
+        [u(f.list_lairs,%#,*,*)]%r
+        [divider()]%r
+-
+@set LAIR_OBJ/c.lairs_list=regex
+-
+
+#List lairs by name
+&c.lairs_list_by LAIR_OBJ=$^\+lair/search (name|loc|type)=([\w\s0_9_\*-]+)$:
+    @pemit %#=[setq(t,case(%1,name,NAME,loc,LOCATION,type,TYPE))]
+        [header(Lairs List)]%r
+        %xh[u(f.fmt_lair_list_line,Name,Location,Type)]%xn%r
+        [divider()]%r
+        [u(f.list_lairs_by_field,%#,%qt,%2)]%r
+        [divider()]%r
+-
+
+@set LAIR_OBJ/c.lairs_list_by=regex
+-
+
+&c.lair_show LAIR_OBJ=$^\+lair(/show)? ([0-9]+)$:
+    @switch/first [isdbref(u(f.find_lair_by_num,%2,b))][gt(member(u(f.list_player_lairs,%#),%qb,|),0)]=
+        11,@pemit %#=[u(f.show_lair,%qb)]
+        ,10,@eval [game(%#,Permission denied.)]
+        ,0?,@eval [game(%#,Lair not found.)]
+-
+@set LAIR_OBJ/c.lair_show=regex
+-
+
+&c.lair_show_note LAIR_OBJ=$^\+lair(/show)? ([0-9]+)/([\w\s0-9_-]+)$:
+    @switch/first [setq(n,edit(%3,% ,_))][isdbref(u(f.find_lair_by_num,%2,b))]
+                  [gt(member(u(f.list_player_lairs,%#),%qb,|),0)][hasattr(%qb,NOTE_%qn)]=
+        111,@pemit %#=[u(f.show_lair_note,%qb,%3)]
+        ,?0?,@eval [game(%#,Permission denied.)]
+        ,0??,@eval [game(%#,Lair not found.)]
+        ,??0,@eval [game(%#,Note not found.)]
+-
+@set LAIR_OBJ/c.lair_show_note=regex
+-
+
+&c.lair_note LAIR_OBJ=$^\+lair/note ([0-9]+)/([\w\s0-9_-]+)=([^\(\)\[\]]*)$:
+    @assert [isstaff(%#)]=@eval [game(%#,Permission denied.)];
+    @switch/first [setq(n,edit(%2,% ,_))][isdbref(u(f.find_lair_by_num,%1,b))][gt(strlen(%3),0)][hasattr(%qb,NOTE_%qn)]=
+        110,{
+            @eval [set(%qb,NOTE_%qn:[secs()]|%#|%2|%3)]
+                  [game(%#,Note %xh%qn%xn set on lair: %xh%1%xn)]
+        },
+        111,{
+            @eval [set(%qb,NOTEHISTORY_%qn_[secs()]_%#:[xget(%qb,NOTE_%qn)])]
+                  [set(%qb,NOTE_%qn:[secs()]|%#|%2|%3)]
+                  [game(%#,Note %xh%qn%xn replaced on lair: %xh%1%xn)]
+        },
+        101,{
+            @eval [set(%qb,NOTEHISTORY_%qn_[secs()]_%#:[xget(%qb,NOTE_%qn)])]
+                  [set(%qb,NOTE_%qn:)]
+                  [game(%#,Note %xh%qn%xn cleared on lair: %xh%1%xn)]
+        },
+        0??,{
+            @eval [game(%#,Lair not found.)]
+        }
+
+-
+@set LAIR_OBJ/c.lair_note=regex
+-
